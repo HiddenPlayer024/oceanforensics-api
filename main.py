@@ -6,11 +6,9 @@ from PIL import Image
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
-import torch
-import segmentation_models_pytorch as smp
+import onnxruntime as ort
 import rasterio.features
 from shapely.geometry import shape, Polygon, MultiPoint
-import torchvision.transforms as transforms
 
 # OpenDrift imports
 from opendrift.models.openoil import OpenOil
@@ -42,26 +40,16 @@ class HindcastRequest(BaseModel):
 
 # --- Model Loading ---
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = None
+model_session = None
 
 @app.on_event("startup")
 def load_model():
-    global model
-    model = smp.DeepLabV3Plus(
-        encoder_name="resnet50",
-        encoder_weights=None,
-        in_channels=3,
-        classes=1,
-    )
+    global model_session
     try:
-        model.load_state_dict(torch.load("models/deeplabv3plus_resnet50_oilspill.pth", map_location=device))
-        print("Loaded fine-tuned model weights.")
+        model_session = ort.InferenceSession("models/model.onnx")
+        print("Loaded fine-tuned ONNX model.")
     except Exception as e:
-        print("Warning: Could not load fine-tuned model weights. Using uninitialized weights.")
-    
-    model.to(device)
-    model.eval()
+        print(f"Warning: Could not load ONNX model. {e}")
 
 # --- Helpers ---
 
@@ -96,17 +84,22 @@ async def detect(req: DetectRequest):
         image = Image.open(img_path).convert("RGB")
         original_size = image.size
         
-        transform = transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
+        # Pure Numpy transforms
+        img_resized = image.resize((256, 256), Image.Resampling.BILINEAR)
+        img_array = np.array(img_resized, dtype=np.float32) / 255.0
+        img_array = (img_array - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
+        img_array = img_array.transpose(2, 0, 1)  # HWC to CHW
+        input_tensor = np.expand_dims(img_array, axis=0).astype(np.float32)
         
-        input_tensor = transform(image).unsqueeze(0).to(device)
-        
-        with torch.no_grad():
-            output = model(input_tensor)
-            prob = torch.sigmoid(output).squeeze().cpu().numpy()
+        # ONNX Inference
+        if model_session:
+            ort_inputs = {model_session.get_inputs()[0].name: input_tensor}
+            output = model_session.run(None, ort_inputs)[0]
+            
+            # Sigmoid
+            prob = 1 / (1 + np.exp(-output.squeeze()))
+        else:
+            prob = np.zeros((256, 256), dtype=np.float32)
             
         mask = (prob > 0.5).astype(np.uint8)
         

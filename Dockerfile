@@ -22,11 +22,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py .
 RUN mkdir -p models
 RUN apt-get update && apt-get install -y wget && \
-    wget -O models/deeplabv3plus_resnet50_oilspill.pth.gz https://github.com/HiddenPlayer024/oceanforensics-api/releases/download/v1.0/deeplabv3plus_resnet50_oilspill.pth.gz && \
-    gunzip models/deeplabv3plus_resnet50_oilspill.pth.gz
+    wget -O models/model.tar.gz https://github.com/HiddenPlayer024/oceanforensics-api/releases/download/v1.0/model.tar.gz && \
+    tar -xzvf models/model.tar.gz -C models/ && \
+    rm models/model.tar.gz
 
 # Expose port 8000 for the FastAPI server
 EXPOSE 8000
 
 # Set entrypoint to run Uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
