@@ -34,7 +34,7 @@ class Point(BaseModel):
 
 class HindcastRequest(BaseModel):
     centroid: Point
-    polygon: list
+    polygon: dict
     detection_timestamp: str
     region: Region
 
@@ -153,7 +153,10 @@ async def detect(req: DetectRequest):
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
             "confidence": 0.87,  # mock confidence
             "is_lookalike_filtered": is_lookalike_filtered,
-            "polygon": geo_coords,
+            "polygon": {
+                "type": "Polygon",
+                "coordinates": [geo_coords]
+            },
             "geometry": {
                 "area_km2": area_km2,
                 "perimeter_km": perimeter_km,
@@ -228,12 +231,19 @@ async def hindcast(req: HindcastRequest):
             forward_forecast_path = [[req.centroid.lon, req.centroid.lat]]
 
         return {
-            "origin_probability_area": origin_probability_area,
+            "origin_probability_area": {
+                "type": "Polygon",
+                "coordinates": [origin_probability_area]
+            },
             "estimated_origin_time_window": {
                 "start": (origin_time - datetime.timedelta(hours=1)).isoformat() + "Z",
                 "end": (origin_time + datetime.timedelta(hours=1)).isoformat() + "Z"
             },
-            "forward_forecast_path": forward_forecast_path
+            "forward_forecast_path": {
+                "type": "Polygon",
+                "coordinates": [forward_forecast_path]
+            },
+            "monte_carlo_runs": 100
         }
         
     except Exception as e:
