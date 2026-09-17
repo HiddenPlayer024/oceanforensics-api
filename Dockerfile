@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code and model weights
 COPY main.py .
-COPY models/ ./models/
+RUN mkdir -p models
 RUN apt-get update && apt-get install -y wget && \
     wget -O models/deeplabv3plus_resnet50_oilspill.pth.gz https://github.com/HiddenPlayer024/oceanforensics-api/releases/download/v1.0/deeplabv3plus_resnet50_oilspill.pth.gz && \
     gunzip models/deeplabv3plus_resnet50_oilspill.pth.gz
