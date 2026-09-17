@@ -1,0 +1,13 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
+fastapi
+uvicorn[standard]
+pydantic
+numpy
+Pillow
+rasterio
+shapely
+opendrift
+segmentation-models-pytorch
+opencv-python-headless

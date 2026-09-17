@@ -1,0 +1,9 @@
+__pycache__/
+frontend/
+dataset/
+*.pyc
+train.log
+demo_fallback.json
+final_metrics.txt
+cloudflared.deb
+*.pth.gz
